@@ -9,6 +9,8 @@ import sqlite3
 import time
 import glob
 import fileinput
+import zipfile
+
 
 file_name = sys.argv[1]
 dimensions_list = sys.argv[2]
@@ -227,6 +229,12 @@ def merge_survey_data(survey):
     
     connect.close()
 
+
+def zip(file_name):
+	file = zipfile.ZipFile(file_name + ".zip", "w")
+	file.write(file_name, os.path.basename(file_name), zipfile.ZIP_DEFLATED)
+	file.close()
+
 # path=os.getcwd()
 # dirList=os.listdir(path)
 global_start_time = time.clock()
@@ -256,6 +264,7 @@ log_file.write("\tData Reshape(seconds)\t" + str(time.clock() - step_start_time)
 #3. run merge
 step_start_time = time.clock()
 merge_survey_data(file_name)
+zip(file_name+"_Input.txt")
 log_file.write("\tData Merge(seconds)\t" + str(time.clock() - step_start_time) +"\n")
         
 log_file.write("TOTAL SURVEY(seconds)\t" + str(time.clock() - file_start_time) +"\n\n")
