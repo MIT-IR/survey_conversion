@@ -300,17 +300,17 @@ file_start_time = time.clock()
 
 #1. get survey question metadata
 step_start_time = time.clock()
-get_survey_metadata(file_name)
+dimension_labs = get_survey_metadata(file_name, dimensions_clean)
 log_file.write("\tSurvey Metadata(seconds)\t" + str(time.clock() - step_start_time) +"\n")
             
 #2. run the reshape
 step_start_time = time.clock()
-reshape_survey_data(file_name)
+reshape_survey_data(file_name, dimensions_clean)
 log_file.write("\tData Reshape(seconds)\t" + str(time.clock() - step_start_time) +"\n")
         
 #3. run merge
 step_start_time = time.clock()
-merge_survey_data(file_name)
+merge_survey_data(file_name, dimension_dict ,values, dimension_labs, dimensions_clean)
 zip(file_name+"_Input.txt")
 log_file.write("\tData Merge(seconds)\t" + str(time.clock() - step_start_time) +"\n")
         
