@@ -1,5 +1,14 @@
 
-#Remember to run this using python27, 64 bit. I typically run in from the python interpretter that comes with SPSS.
+# Remember to run this using python27, 64 bit. I typically run in from the python interpretter that comes with SPSS.
+# Usage: //Path//to//SPSS//python survey_converter.py survey_data.sav dim1|dim2|dim3|dim4
+# The first argument is the path to the SPSS version of Python. This is used because it plays well with the
+# SPSS packages necessary.
+# The second argument is the name of the script
+# The third argument is the name of the SPSS file
+# The fourth argument is the pipe ( this thing-> | ) delimited list of "dimensions" in the lingo of survey
+# conversions, dimensions are the attributes of the respondents that you want to be available on any row
+# so these are usually demographics, the things you would want to crosstab other survey variables by
+
 
 import spss, SpssClient,spssaux
 import os
@@ -10,63 +19,74 @@ import time
 import glob
 import fileinput
 import zipfile
+import operator
 
-
+# SPSS file name, file name and script are supposed to be in the same directory to run correctly
 file_name = sys.argv[1]
-dimensions_list = sys.argv[2]
+# split off the .sav extension to use as a name for the output file later
+file_name = file_name.split(".")[0]
 
+# List of dimensions (see detailed description in header)
+dimensions_list = sys.argv[2]
 dimensions = dimensions_list.split('|')
 
 SpssClient.StartClient()
     
-#import spss .sav file
+# import spss .sav file
+# Script must be in same directory as the SPSS file that is to be reshaped
 spss.Submit("GET FILE='" + os.getcwd() + "\\" + file_name + ".sav'.")
 
-#list of variable names and order
+# list of variable names and order
 primary_variable_list = []
 for i in range(spss.GetVariableCount()):
     primary_variable_list.append(spss.GetVariableName(i))
 
-#text for creating table which will be used to create the input file, one column for each item in the dimension list, plus two extra columns for survey variables and values
-#generic column names are given to avoid any errors if the fields in the file are numeric or duplicated
-sql_list = []
-z =0
-for item in dimensions:
-    z += 1
-    sql_list.append("field"+str(z)+" TEXT")
-sql_str = "Create table response ("+', '.join(sql_list)+", survey_variable TEXT, survey_value NUMBER)"
 
-#remove from the dimension list any variables which are not in the spss file
-dimensions_clean = []
-for dim in dimensions:
-    if dim in primary_variable_list:
-        dimensions_clean.append(dim)
+def dimension_setup(dims, primary_vars):
+    """
+    dims: list, list of variable names to have unpivoted
+    primary_vars: list, list of all variables in SPSS datafile
+    uses the user-specified dimensions to create SQL table creation and INSERT language
+    and checks for the existence of those dimensions in the SPSS file
+    returns SQL code for insert and create, dictionary of variables not in
+    the SPSS file with var names as keys and index in dimension list as values
+    """
+    null_vars = {}
+    dims_clean = None
+    if dims_clean is None:
+        dims_clean = []
+    sql_list = None
+    if sql_list is None:
+        sql_list = []
+    val_insert = None
+    if val_insert is None:
+        val_insert = []
+    for i in range(len(dims)):
+        if dims[i] not in primary_vars:
+            null_vars[dims[i]] = i
+        else:
+            dims_clean.append(dims[i])
+        sql_list.append("field"+str(i)+" TEXT")
+        val_insert.append("?")
+    create_stmnt = "Create table response ("+', '.join(sql_list)+", survey_variable TEXT, survey_value NUMBER)"
+    for i in range(2):
+        val_insert.append("?")
+    insert_stmnt = "insert into response values ("+', '.join(val_insert)+")"
+    return insert_stmnt, create_stmnt, null_vars, dims_clean
 
-#find the index of every variable in the dimension list which is not in the list of variables in the SPSS file
-#this is used later to add null values in the input file
-indices = [i for i, x in enumerate(dimensions) if x not in primary_variable_list]
+values, sql_str, dimension_dict, dimensions_clean = dimension_setup(dimensions, primary_variable_list)
 
-constant_list = []
-for item in dimensions:
-    if item not in primary_variable_list:
-        constant_list.append(item)
-
-#text for inserting into table created above, the number of ?s is determined by the length of the dimension list passed as an argument
-value_insert = []
-size = len(sql_list)
-size2=size+2
-for i in range(size2):
-    value_insert.append("?")
-values = "insert into response values ("+', '.join(value_insert)+")"
-
-def get_survey_metadata(file_name):
+def get_survey_metadata(file_name, clean_dims):
     """
     Uses an SPSS .sav file to generate a file with survey question metadata.
     
     INPUTS:
         file_name: Takes name of spss .sav file as an argument,
+        clean_dims: list of dimensions in the SPSS file, to be used to save off
+        the labels for these dimensions
     OUTPUTS:
         [file_name]_values_input.txt: A txt file with survey question metadata, value labels, etc.
+        dimension_labels: a dictionary of dictionaries for labeling dimensions
     """
     print file_name
     
@@ -81,7 +101,9 @@ def get_survey_metadata(file_name):
     sdict = spssaux.VariableDict()
 
     #list of variable names and order
-    variable_list = []
+    variable_list = None
+    if variable_list is None:
+        variable_list = []
     for i in range(spss.GetVariableCount()):
         variable_list.append(spss.GetVariableName(i))
 
@@ -99,19 +121,22 @@ def get_survey_metadata(file_name):
         #	question_label = question_label[index_of_delimiter+1:]
         #print index_of_delimiter
         vallabs = sdict[sdict.VariableIndex(var)].ValueLabels
+        if var in clean_dims:
+            dimension_labels[var] = vallabs
         for val,lab in vallabs.iteritems():
             f2.write(var +"|"+ val +"|" + (lab.upper()).encode('ascii','ignore') + "|" + question_label + "|" + stem +  "\n")
         i=i+1
-
     f2.close()
-        
+    return dimension_labels
+       
 
-def reshape_survey_data(file_name):
+def reshape_survey_data(file_name, clean_dim_list):
     """
     Reshapes responses in a .sav file.  Currently, the id variable (what we are pivoting on is hardcoded since it doesn't change).
     
     INPUTS:
         file_name: Takes name of spss .sav file as an argument,
+        clean_dim_list: list, dimensions that were specified and are in the SPSS file
     OUTPUTS:
         [file_name]_nominal_survey_responses_input.dat: A txt file with a nomimal responses.  
     """
@@ -121,16 +146,19 @@ def reshape_survey_data(file_name):
     spss.Submit("GET FILE='" + os.getcwd() + "\\" + file_name + ".sav'.")
     
     #list of variable names only for nominal variable
-    variable_list=[] 
+    variable_list = None
+    if variable_list is None:
+        variable_list = [] 
     for i in range(spss.GetVariableCount()):
         print spss.GetVariableName(i)
-        dimensionList = dimensions_clean
-        dimensionListUpper = []
-        for var in dimensionList:
+        dimensionListUpper is None:
+        if dimensionListUpper is None:
+            dimensionListUpper = []
+        for var in clean_dim_list:
             dimensionListUpper.append(var.upper())
         if ((spss.GetVariableType(i)==0) & (spss.GetVariableName(i).upper() not in dimensionListUpper)):
             variable_list.append(spss.GetVariableName(i))
-        keep_list = " ".join(dimensionList)
+        keep_list = " ".join(clean_dim_list)
     variable_list_text = ' '.join([str(i) for i in variable_list])
     print variable_list_text
 
@@ -147,12 +175,19 @@ def reshape_survey_data(file_name):
     #import spss .sav file
     spss.Submit("GET FILE='" + os.getcwd() + "\\" + file_name + ".sav'.")
     
-def merge_survey_data(survey):  
+def merge_survey_data(survey,dim_insert_dict,insert_statement, dim_labels, dimclean):  
     """
     Joins the question metadata and response data files together.  This is a good place for additional cleaning via update sql.
     
     INPUTS:
         survey: Takes name of spss .sav file as an argument,
+        dim_insert_dict: dictionary with keys as variables not in SPSS file, values indices of
+        these variables in original user-specified dimension list, this is the product of the
+        dimension_setup function
+        insert_statement: sqlite code to insert a row of data, product of the dimension_setup fn.
+        dim_labels: a dictionary of dictionaries for labeling the dimensions, product of the 
+        get_survey_metadata function
+        dimclean: list of dimensions actually in SPSS file, product of the dimension_setup function
     OUTPUTS:
         mitx_survey_[survey ]: File for loading.  Combines responses and question metadata. 
     """    
@@ -178,14 +213,26 @@ def merge_survey_data(survey):
     cursor.execute("create index idx2 on value(SURVEY_VARIABLE)")
     
     #Load
+    dimlen = len(dimclean)
     infile = open(os.getcwd() + "\\" + survey + "_nominal_survey_responses_input.dat")
     for line in infile.readlines()[1:]:
         row = line.replace("\n","").split("\t")
-        counter = -1
-        for elm in indices:
-            counter += 1
-            row.insert(elm, constant_list[counter])
-        cursor.execute(values,row)
+        newrow = None
+        if newrow is None:
+            newrow = []
+        for i in range(len(row[:dimlen])):
+            if dimclean[i] in dim_labels.keys():
+                label = dim_labels[dimclean[i]][row[i]]
+                if label:
+                    newrow.append(label)
+                else:
+                    newrow.append(row[i])
+            else:
+                newrow.append(row[i])
+        sorted_d = sorted(dim_insert_dict.items(),key=operator.itemgetter(1))
+        for pair in sorted_d:
+            row.insert(pair[1], pair[0])
+        cursor.execute(insert_statement,row)
     infile.close()
     infile = open(os.getcwd() + "\\" + survey + "_values_input.txt")
     for line in infile.readlines():
@@ -211,7 +258,7 @@ def merge_survey_data(survey):
     #export
     cwd = os.getcwd()
     print cwd
-    outfile=open(os.getcwd() + "\\"+file_name+"_Input.txt","w")
+    outfile=open(os.getcwd() + "\\"+survey+"_Input.txt","w")
     
     #header - Just for Jon to do mockup Tableau
     #outfile.write("INSTITUTION_KEY\tACADEMIC_YEAR_KEY\tGENDER_CODE\tBIRTH_YEAR\tCITIZENSHIP_CODE\tIS_HISPANIC\tIS_NATIVE_AMERICAN\tIS_HAWAIIAN\tIS_ASIAN\tIS_AFRICAN_AMERICAN\tIS_WHITE\tDEGREE_CODE\tCIP_KEY\tCASEID_LOCAL\tCASEID_UNIQUE\tSURVEY_VARIABLE\tSURVEY_VALUE\tSURVEY_VALUE_LABEL\tSURVEY_QUESTION_LABEL\tSURVEY_STEM_TEXT\n")
