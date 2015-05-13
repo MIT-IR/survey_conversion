@@ -109,7 +109,8 @@ def get_survey_metadata(file_name, clean_dims):
 
     #create data for survey.value 
     f2.write("")
-    i=0 
+    i=0
+    dimension_labels = {}
     for var in sdict.expand(variable_list):
         question_label = str(spss.GetVariableLabel(i).encode('ascii','ignore'))
         
@@ -121,8 +122,11 @@ def get_survey_metadata(file_name, clean_dims):
         #	question_label = question_label[index_of_delimiter+1:]
         #print index_of_delimiter
         vallabs = sdict[sdict.VariableIndex(var)].ValueLabels
+	print type(vallabs)
+	print vallabs
+	print var
         if var in clean_dims:
-            dimension_labels[var] = vallabs
+            dimension_labels[var.upper()] = vallabs
         for val,lab in vallabs.iteritems():
             f2.write(var +"|"+ val +"|" + (lab.upper()).encode('ascii','ignore') + "|" + question_label + "|" + stem +  "\n")
         i=i+1
@@ -148,12 +152,12 @@ def reshape_survey_data(file_name, clean_dim_list):
     #list of variable names only for nominal variable
     variable_list = None
     if variable_list is None:
-        variable_list = [] 
+        variable_list = []
+    dimensionListUpper = None
+    if dimensionListUpper is None:
+        dimensionListUpper = []
     for i in range(spss.GetVariableCount()):
         print spss.GetVariableName(i)
-        dimensionListUpper is None:
-        if dimensionListUpper is None:
-            dimensionListUpper = []
         for var in clean_dim_list:
             dimensionListUpper.append(var.upper())
         if ((spss.GetVariableType(i)==0) & (spss.GetVariableName(i).upper() not in dimensionListUpper)):
@@ -221,8 +225,11 @@ def merge_survey_data(survey,dim_insert_dict,insert_statement, dim_labels, dimcl
         if newrow is None:
             newrow = []
         for i in range(len(row[:dimlen])):
-            if dimclean[i] in dim_labels.keys():
-                label = dim_labels[dimclean[i]][row[i]]
+            if dimclean[i].upper() in dim_labels.keys() and dim_labels[dimclean[i].upper()]:
+                try:
+		    label = dim_labels[dimclean[i].upper()][row[i]]
+		except KeyError:
+		    label = row[i]
                 if label:
                     newrow.append(label)
                 else:
@@ -231,8 +238,10 @@ def merge_survey_data(survey,dim_insert_dict,insert_statement, dim_labels, dimcl
                 newrow.append(row[i])
         sorted_d = sorted(dim_insert_dict.items(),key=operator.itemgetter(1))
         for pair in sorted_d:
-            row.insert(pair[1], pair[0])
-        cursor.execute(insert_statement,row)
+            newrow.insert(pair[1], pair[0])
+	newrow.append(row[-2])
+	newrow.append(row[-1])
+        cursor.execute(insert_statement,newrow)
     infile.close()
     infile = open(os.getcwd() + "\\" + survey + "_values_input.txt")
     for line in infile.readlines():
