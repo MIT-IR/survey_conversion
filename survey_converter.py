@@ -122,9 +122,6 @@ def get_survey_metadata(file_name, clean_dims):
         #	question_label = question_label[index_of_delimiter+1:]
         #print index_of_delimiter
         vallabs = sdict[sdict.VariableIndex(var)].ValueLabels
-	print type(vallabs)
-	print vallabs
-	print var
         if var in clean_dims:
             dimension_labels[var.upper()] = vallabs
         for val,lab in vallabs.iteritems():
@@ -227,9 +224,9 @@ def merge_survey_data(survey,dim_insert_dict,insert_statement, dim_labels, dimcl
         for i in range(len(row[:dimlen])):
             if dimclean[i].upper() in dim_labels.keys() and dim_labels[dimclean[i].upper()]:
                 try:
-		    label = dim_labels[dimclean[i].upper()][row[i]]
-		except KeyError:
-		    label = row[i]
+                    label = dim_labels[dimclean[i].upper()][row[i]]
+                except KeyError:
+                    label = row[i]
                 if label:
                     newrow.append(label)
                 else:
@@ -239,8 +236,8 @@ def merge_survey_data(survey,dim_insert_dict,insert_statement, dim_labels, dimcl
         sorted_d = sorted(dim_insert_dict.items(),key=operator.itemgetter(1))
         for pair in sorted_d:
             newrow.insert(pair[1], pair[0])
-	newrow.append(row[-2])
-	newrow.append(row[-1])
+        newrow.append(row[-2])
+        newrow.append(row[-1])
         cursor.execute(insert_statement,newrow)
     infile.close()
     infile = open(os.getcwd() + "\\" + survey + "_values_input.txt")
