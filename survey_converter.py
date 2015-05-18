@@ -113,7 +113,6 @@ def get_survey_metadata(file_name, clean_dims):
     dimension_labels = {}
     for var in sdict.expand(variable_list):
         question_label = str(spss.GetVariableLabel(i).encode('ascii','ignore'))
-        
         #try to get stems
         stem =""
         #index_of_delimiter = question_label.find("-")
@@ -122,6 +121,8 @@ def get_survey_metadata(file_name, clean_dims):
         #	question_label = question_label[index_of_delimiter+1:]
         #print index_of_delimiter
         vallabs = sdict[sdict.VariableIndex(var)].ValueLabels
+        if not vallabs:
+            f2.write(var +"|None|None|" + question_label + "|" + stem +  "\n")
         if var in clean_dims:
             dimension_labels[var.upper()] = vallabs
         for val,lab in vallabs.iteritems():
