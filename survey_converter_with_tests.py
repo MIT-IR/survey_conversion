@@ -261,7 +261,7 @@ def merge_survey_data(survey,dim_insert_dict,insert_statement, dim_labels, dimcl
     connect.close()
 
 
-def zip(file_name):
+def zip_file(file_name):
 	file = zipfile.ZipFile(file_name + ".zip", "w")
 	file.write(file_name, os.path.basename(file_name), zipfile.ZIP_DEFLATED)
 	file.close()
@@ -316,7 +316,7 @@ if __name__ == '__main__':
 	#3. run merge
 	step_start_time = time.clock()
 	merge_survey_data(file_name, dimension_dict ,values, dimension_labs, dimensions_clean)
-	zip(file_name+"_Input.txt")
+	zip_file(file_name+"_Input.txt")
 	log_file.write("\tData Merge(seconds)\t" + str(time.clock() - step_start_time) +"\n")
 			
 	log_file.write("TOTAL SURVEY(seconds)\t" + str(time.clock() - file_start_time) +"\n\n")
