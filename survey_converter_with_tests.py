@@ -20,6 +20,9 @@ import glob
 import fileinput
 import zipfile
 import operator
+import uuid
+import nose
+
 
 def dimension_setup(dims, primary_vars):
     """
@@ -265,6 +268,36 @@ def zip_file(file_name):
 	file = zipfile.ZipFile(file_name + ".zip", "w")
 	file.write(file_name, os.path.basename(file_name), zipfile.ZIP_DEFLATED)
 	file.close()
+
+def setup_func():
+	"""
+	setup for the nose tests
+	"""
+	test_filename = "temp_"+str(uuid.uuid4())+"_nosetest.txt"
+	f = open(test_filename,"w")
+	f.write("testing file")
+	f.close()
+
+def teardown_func():
+	"""
+	teardown for the nose tests
+	"""
+	for f in glob.glob("temp_*_nosetest.txt"):
+		os.remove(f)
+	for f in glob.glob("temp_*_nosetest.txt.zip"):
+		os.remove(f)
+	
+	
+@nose.with_setup(setup_func,teardown_func)
+def zip_test():
+	"""
+	test that the zip_file() function creates a file 
+	"""
+	for f in glob.glob("temp_*_nosetest.txt"):
+		zip_file(f)
+		assert(os.path.isfile(f+".zip"))
+		
+	
 	
 if __name__ == '__main__':	
 	# SPSS file name, file name and script are supposed to be in the same directory to run correctly
