@@ -32,6 +32,7 @@ def dimension_setup(dims, primary_vars):
     and checks for the existence of those dimensions in the SPSS file
     returns SQL code for insert and create, dictionary of variables not in
     the SPSS file with var names as keys and index in dimension list as values
+	and a list of the dimensions that are in the file
     """
     null_vars = {}
     dims_clean = None
@@ -297,6 +298,70 @@ def zip_test():
 		zip_file(f)
 		assert(os.path.isfile(f+".zip"))
 		
+
+def list_of_dimensions_in_file_all_in_file_test():
+	"""
+	tests that the dimension_setup correctly
+	returns the list of dimensions that exist in the file
+	Tests the case where all of the supplied dimensions
+	are in the file
+	"""
+	dimensions = ["name", "age", "sex"]
+	all_variables = ["name", "age", "sex", "var1", "var2", "var3"]
+	null1, null2, null3, clean_list = dimension_setup(dimensions, all_variables)
+	assert clean_list == dimensions
+
+def list_of_dimensions_in_file_some_missing_test():
+	"""
+	tests that the dimension_setup correctly
+	returns the list of dimensions that exist in the file
+	Tests the case where some of the supplied dimensions
+	are not in the file
+	"""
+	dimensions = ["name", "age", "sex", "foo"]
+	clean_dimensions = dimensions[:-1]
+	all_variables = ["name", "age", "sex", "var1", "var2", "var3"]
+	null1, null2, null3, clean_list = dimension_setup(dimensions, all_variables)
+	assert clean_list == clean_dimensions
+
+def dimensions_not_in_file_returned_as_dict_test():
+	"""
+	tests that dimension_setup correctly
+	returns a dictionary of the dimensions that
+	are not in the SPSS file with the variable names
+	as keys and the index in the list of values as keys
+	"""
+	dimensions = ["name", "age", "sex", "foo"]
+	all_variables = ["name", "age", "sex", "var1", "var2", "var3"]
+	null1, null2, invalid_dimensions, null3 = dimension_setup(dimensions, all_variables)
+	assert invalid_dimensions == {"foo" : 3}
+
+def dimension_setup_insert_statement_test():
+	"""
+	tests that the dimension_setup function
+	returns a correct SQL statement for inserting
+	values into a sqlite database
+	"""
+	dimensions = ["name", "age", "sex", "foo"]
+	all_variables = ["name", "age", "sex", "var1", "var2", "var3"]
+	sql_statement, null1, null2, null3 = dimension_setup(dimensions, all_variables)
+	# the sql statement should be the length of all of the dimensions
+	# plus two extra columns for the response value and response variable
+	assert sql_statement == "insert into response values (?, ?, ?, ?, ?, ?)"
+
+def dimension_setup_create_statement_test():
+	"""
+	tests that the dimension_setup function
+	returns a correct SQL statement for creating
+	the table of responses
+	"""
+	dimensions = ["name", "age", "sex", "foo"]
+	all_variables = ["name", "age", "sex", "var1", "var2", "var3"]
+	null1, sql_statement, null2, null3 = dimension_setup(dimensions, all_variables)
+	# basically just tests that the create statement has the right number of fields
+	# as the field names are generic and don't depend on inputs
+	assert sql_statement == "Create table response (field0 TEXT, field1 TEXT, field2 TEXT, field3 TEXT, survey_variable TEXT, survey_value NUMBER)"
+	
 	
 	
 if __name__ == '__main__':	
