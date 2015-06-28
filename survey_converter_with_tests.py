@@ -294,12 +294,10 @@ def teardown_func():
 		os.remove(f)
 	try:
 		os.remove("var_label_val_label_testing_values_input.txt")
-	except:
+	except (WindowsError, OSError):
 		pass
-	try:
-		SpssClient.StopClient()
-	except:
-		pass
+	SpssClient.StopClient()
+	
 	
 	
 @nose.with_setup(setup_func,teardown_func)
@@ -364,7 +362,7 @@ def dimension_setup_insert_statement_test():
 
 def dimension_setup_create_statement_test():
 	"""
-	tests that the dimension_setup function
+	test that the dimension_setup function
 	returns a correct SQL statement for creating
 	the table of responses
 	"""
@@ -376,13 +374,12 @@ def dimension_setup_create_statement_test():
 	assert sql_statement == "Create table response (field0 TEXT, field1 TEXT, field2 TEXT, field3 TEXT, survey_variable TEXT, survey_value NUMBER)"
 
 @nose.with_setup(teardown=teardown_func)
-def metadata_dimension_labels_test():
+def metadata_dimension_labels_return_test():
 	"""
-	tests whether the get_survey_metadata()
+	test whether the get_survey_metadata()
 	function returns the correct dictionary of
 	dimensions with their labels
 	NOTE: currently aims at a real SPSS file created for testing
-	but probably should be converted to use a mock object
 	make sure the specific tesing SPSS file exists in same directory
 	for this test to succeed
 	"""
@@ -390,6 +387,13 @@ def metadata_dimension_labels_test():
 	testing_dictionary =  {"VAR1" : {"1":"one", "2": "two", "3":"three"},
 									"VAR3" : {"a":"the letter a", "b":"the letter b" }}
 	assert dimension_label_dict == testing_dictionary
+
+@nose.with_setup(teardown=teardown_func)
+def metadata_value_label_output_file_exists_test():
+	"""Test the existence of the file that the get_metadata() fn creates"""
+	test_filename = "var_label_val_label_testing"
+	null = get_survey_metadata(test_filename,["var1"])
+	assert(os.path.isfile("".join((test_filename,"_values_input.txt"))))
 
 	
 if __name__ == '__main__':	
