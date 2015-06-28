@@ -292,6 +292,14 @@ def teardown_func():
 		os.remove(f)
 	for f in glob.glob("temp_*_nosetest.txt.zip"):
 		os.remove(f)
+	try:
+		os.remove("var_label_val_label_testing_values_input.txt")
+	except:
+		pass
+	try:
+		SpssClient.StopClient()
+	except:
+		pass
 	
 	
 @nose.with_setup(setup_func,teardown_func)
@@ -367,6 +375,7 @@ def dimension_setup_create_statement_test():
 	# as the field names are generic and don't depend on inputs
 	assert sql_statement == "Create table response (field0 TEXT, field1 TEXT, field2 TEXT, field3 TEXT, survey_variable TEXT, survey_value NUMBER)"
 
+@nose.with_setup(teardown=teardown_func)
 def metadata_dimension_labels_test():
 	"""
 	tests whether the get_survey_metadata()
