@@ -97,8 +97,8 @@ def get_survey_metadata(file_name, clean_dims):
         for val,lab in vallabs.iteritems():
             f2.write(var +"|"+ val +"|" + (lab.upper()).encode('ascii','ignore') + "|" + question_label + "|" + stem +  "\n")
     f2.close()
-    
     return dimension_labels
+
 
 def reshape_survey_data(file_name, clean_dim_list):
     """
@@ -119,29 +119,22 @@ def reshape_survey_data(file_name, clean_dim_list):
     variable_list = None
     if variable_list is None:
         variable_list = []
-    dimensionListUpper = None
-    if dimensionListUpper is None:
-        dimensionListUpper = []
+    dimensionListUpper = [var.upper for var in clean_dim_list]
+    keep_list = " ".join(clean_dim_list)
     for i in range(spss.GetVariableCount()):
-        print spss.GetVariableName(i)
-        for var in clean_dim_list:
-            dimensionListUpper.append(var.upper())
+        #print spss.GetVariableName(i)
         if ((spss.GetVariableType(i)==0) & (spss.GetVariableName(i).upper() not in dimensionListUpper)):
             variable_list.append(spss.GetVariableName(i))
-        keep_list = " ".join(clean_dim_list)
     variable_list_text = ' '.join([str(i) for i in variable_list])
-    print variable_list_text
-
+    #print variable_list_text
     #import spss .sav file
     spss.Submit("DATASET NAME DataSet1 WINDOW=FRONT.")
-    
     spss_string= "VARSTOCASES /ID=id /MAKE trans1 FROM " + variable_list_text + "  /INDEX=Index1(trans1) /KEEP="+keep_list+" /NULL=KEEP."
     print spss_string
     spss.Submit(spss_string)
     spss.Submit("rename variables (trans1=value)(Index1=var_name)")
     spss.Submit("delete variables id")
     spss.Submit("SAVE TRANSLATE OUTFILE='"+ os.getcwd() +"\\" + file_name + "_nominal_survey_responses_input.dat' /TYPE=TAB /ENCODING='UTF8' /MAP /REPLACE /FIELDNAMES /CELLS=VALUES.")
-    
     #import spss .sav file
     spss.Submit("GET FILE='" + os.getcwd() + "\\" + file_name + ".sav'.")
 
@@ -404,6 +397,7 @@ def metadata_value_label_output_file_complete_test():
     ]
     for line in f.readlines():
         assert line in correct_lines
+
 
     
 if __name__ == '__main__':  
